@@ -61,7 +61,7 @@ def compute_weight_matrix(dist_matrix, window_type, bandwidth):
         # 1* to convert boolean in int
         weight_matrix = 1*(dist_matrix <= bandwidth)
     elif window_type == 'normal':
-        weight_matrix = np.exp(-dist_matrix**2 / bandwidth**2)
+        weight_matrix = np.exp(-dist_matrix**2 / (2 * bandwidth**2))
     else:
         raise ValueError("Unknown window type")
     return weight_matrix
@@ -85,7 +85,7 @@ def compute_medoids(dist_matrix, weight_matrix):
     """
 
     S = np.dot(dist_matrix, weight_matrix)
-    # new medoid for point i highest coef in the i-th column of S
+    # new medoid for point i lowest coef in the i-th column of S
     return np.argmin(S, axis=0)
 
 
@@ -158,7 +158,7 @@ def medoid_shift(data, window_type, bandwidth, metric):
     """
 
     if bandwidth is None:
-            bandwidth = estimate_bandwidth(data)
+        bandwidth = estimate_bandwidth(data)
 
     medoids, stat_idx = compute_stationary_medoids(data, window_type,
                                                    bandwidth, metric)
