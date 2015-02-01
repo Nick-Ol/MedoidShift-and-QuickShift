@@ -67,7 +67,7 @@ def compute_weight_matrix(dist_matrix, window_type, bandwidth):
     return weight_matrix
 
 
-def compute_medoids(dist_matrix, weight_matrix):
+def compute_medoids(dist_matrix, weight_matrix, lambd=None):
     """For each point, compute the associated medoid.
 
     Parameters
@@ -78,18 +78,23 @@ def compute_medoids(dist_matrix, weight_matrix):
     weight_matrix : array-like, shape=[n_samples, n_samples]
         Weight for each pair of points.
 
+    lambd : array-like, shape=[n_samples, n_samples]
+        If defined matrix, diagonal matrix with weights for each point.
+
     Returns
     -------
     medoids : array, shape=[n_samples]
         i-th value is the index of the medoid for i-th point.
     """
-
-    S = np.dot(dist_matrix, weight_matrix)
+    if lambd is None:
+        lambd = np.eye(len(dist_matrix))
+    S = np.dot(np.dot(dist_matrix, lambd), weight_matrix)
     # new medoid for point i lowest coef in the i-th column of S
     return np.argmin(S, axis=0)
 
 
-def compute_stationary_medoids(data, window_type, bandwidth, metric):
+def compute_stationary_medoids(data, window_type, bandwidth, metric,
+                               lambd=None):
     """Return the indices of the own medoids.
 
     Parameters
@@ -108,6 +113,9 @@ def compute_stationary_medoids(data, window_type, bandwidth, metric):
         Metric used to compute the distance. See pairwise_distances doc to
         look at all the possible values.
 
+    lambd : array-like, shape=[n_samples, n_samples]
+        If defined matrix, diagonal matrix with weights for each point.
+
     Returns
     -------
     medoids : array, shape=[n_samples]
@@ -118,15 +126,23 @@ def compute_stationary_medoids(data, window_type, bandwidth, metric):
     """
     dist_matrix = compute_distance_matrix(data, metric)
     weight_matrix = compute_weight_matrix(dist_matrix, window_type, bandwidth)
-    medoids = compute_medoids(dist_matrix, weight_matrix)
+    medoids = compute_medoids(dist_matrix, weight_matrix, lambd=None)
     stationary_idx = []
+    n_pts_attached = {}
     for i in range(len(medoids)):
         if medoids[i] == i:
             stationary_idx.append(i)
-    return medoids, np.asarray(stationary_idx)
+            n_pts_attached[i] = 0
+    stationary_idx = np.asarray(stationary_idx)
+    for i in range(len(medoids)):
+        med = medoids[i]
+        while med not in stationary_idx:
+            med = medoids[med]
+        n_pts_attached[med] += 1
+    return medoids, stationary_idx, n_pts_attached
 
 
-def medoid_shift(data, window_type, bandwidth, metric):
+def medoid_shift(data, window_type, bandwidth, metric, lambd=None):
     """Perform medoid shiftclustering of data with corresponding parameters.
 
     Parameters
@@ -145,6 +161,9 @@ def medoid_shift(data, window_type, bandwidth, metric):
         Metric used to compute the distance. See pairwise_distances doc to
         look at all the possible values.
 
+    lambd : array-like, shape=[n_samples, n_samples]
+        If defined matrix, diagonal matrix with weights for each point.
+
     Returns
     -------
     cluster_centers : array, shape=[n_clusters, n_features]
@@ -160,12 +179,16 @@ def medoid_shift(data, window_type, bandwidth, metric):
     if bandwidth is None:
         bandwidth = estimate_bandwidth(data)
 
-    medoids, stat_idx = compute_stationary_medoids(data, window_type,
-                                                   bandwidth, metric)
+    medoids, stat_idx, n_pts = compute_stationary_medoids(data, window_type,
+                                                          bandwidth, metric,
+                                                          lambd)
     new_data = data[stat_idx]
-    new_medoids, new_stat_idx = compute_stationary_medoids(new_data,
-                                                           window_type,
-                                                           bandwidth, metric)
+    if lambd is not None:
+        for i in n_pts.keys():
+            n_pts[i] += lambd[i]
+    lambd = np.diag([i for i in n_pts])
+    new_medoids, new_stat_idx, new_n_pts = compute_stationary_medoids(
+        new_data, window_type, bandwidth, metric, lambd)
     if len(new_stat_idx) == len(new_data):
         cluster_centers = new_data
         labels = []
@@ -183,7 +206,7 @@ def medoid_shift(data, window_type, bandwidth, metric):
 
     else:
         cluster_centers, next_labels, next_clusters_centers_idx = \
-            medoid_shift(new_data, window_type, bandwidth, metric)
+            medoid_shift(new_data, window_type, bandwidth, metric, lambd)
         clusters_centers_idx = stat_idx[next_clusters_centers_idx]
         labels = []
         for i in range(len(data)):
