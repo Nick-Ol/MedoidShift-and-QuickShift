@@ -95,7 +95,7 @@ def compute_medoids(dist_matrix, weight_matrix, tau):
     # P[i,j] = P[i] - P[j]
     P = P[:, np.newaxis] - P
     dist_matrix[dist_matrix == 0] = tau/2
-    S = P * (1/dist_matrix)  # pointwise product
+    S = np.sign(P) * (1/dist_matrix)  # pointwise product
     S[dist_matrix > tau] = -1
 
     # new medoid for point j highest coef in the j-th column of S
