@@ -1,6 +1,10 @@
+""" Comparison of Medoidshift and Quickshift algorithms with
+Meanshift and KMeans.
+
+Any contribution is welcomed
 """
-Comparison of Medoidshift and Quickshift algorithms with Meanshift and KMeans
-"""
+
+# Author: Clement Nicolle <clement.nicolle@student.ecp.fr>
 
 
 import time
